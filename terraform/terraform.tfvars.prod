@@ -1,0 +1,56 @@
+# General
+aws_region         = "Eu region"
+eks_cluster_name   = "eks-cluster-prod"
+resource_prefix    = "hydrostat"
+subnet_ids         = ["subnet-789", "subnet-012"]  # Replace with prod VPC subnets
+namespace          = "dagster"
+ecr_repository_url = "123456789012.dkr.ecr.us-west-2.amazonaws.com" # Replace ecr
+
+
+# Pipeline Configurations
+pipeline_configs = {
+  "geospatial-pipeline" = {
+    name      = "geospatial-pipeline"
+    port      = 3030
+    replicas  = 2
+    cpu_request  = "300m"
+    memory_request = "1Gi"
+    cpu_limit    = "1"
+    memory_limit = "2Gi"
+  }
+ 
+}
+
+# EKS Node Group
+node_group_instance_types = ["t3.medium"]
+node_group_desired_size  = 2
+node_group_min_size      = 2
+node_group_max_size      = 10
+
+# RDS
+rds_instance_class    = "db.t3.medium"
+rds_allocated_storage = 50
+rds_multi_az         = true
+
+# CloudWatch
+log_retention_days = 30
+
+# Dagster Webserver
+webserver_replica_count        = 2
+webserver_cpu_request          = "200m"
+webserver_memory_request       = "512Mi"
+webserver_cpu_limit            = "500m"
+webserver_memory_limit         = "1Gi"
+webserver_min_replicas         = 2
+webserver_max_replicas         = 10
+webserver_target_cpu_utilization = 70
+
+# Dagster Daemon
+daemon_replica_count        = 1
+daemon_cpu_request          = "200m"
+daemon_memory_request       = "512Mi"
+daemon_cpu_limit            = "500m"
+daemon_memory_limit         = "1Gi"
+daemon_min_replicas         = 1
+daemon_max_replicas         = 5
+daemon_target_cpu_utilization = 70

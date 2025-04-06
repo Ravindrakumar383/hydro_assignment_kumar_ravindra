@@ -1,0 +1,66 @@
+# Python general
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.env/
+venv/
+.venv/
+env/
+virtualenv/
+
+# Poetry
+.pypoetry/
+poetry-env/
+
+# Dagster
+.dagster/
+dagster_home/
+
+# pytest
+.pytest_cache/
+*.pytest_cache
+*.cache
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+
+# Docker
+docker-compose.yml
+*.dockerignore
+
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/.terraform.lock.hcl
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# Miscellaneous
+*.env
+*.local
+*.ipynb_checkpoints/

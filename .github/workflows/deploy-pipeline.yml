@@ -1,0 +1,123 @@
+name: Deploy Pipelines
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pipelines/**'
+
+jobs:
+  test-unit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pipeline: ["geospatial-pipeline"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Cache Poetry Dependencies
+        uses: actions/cache@v3
+        with:
+          path: ./pipelines/${{ matrix.pipeline }}/.venv
+          key: ${{ runner.os }}-poetry-${{ matrix.pipeline }}-${{ hashFiles('./pipelines/${{ matrix.pipeline }}/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-${{ matrix.pipeline }}-
+      - name: Install Poetry
+        run: |
+          pip install poetry
+      - name: Install Dependencies
+        working-directory: ./pipelines/${{ matrix.pipeline }}
+        run: |
+          poetry install --with test
+      - name: Run Unit Tests
+        working-directory: ./pipelines/${{ matrix.pipeline }}
+        run: |
+          poetry run pytest tests/unit/ -v
+        env:
+          PYTHONPATH: ./src
+
+  test-integration:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pipeline: ["geospatial-pipeline"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Cache Poetry Dependencies
+        uses: actions/cache@v3
+        with:
+          path: ./pipelines/${{ matrix.pipeline }}/.venv
+          key: ${{ runner.os }}-poetry-${{ matrix.pipeline }}-${{ hashFiles('./pipelines/${{ matrix.pipeline }}/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-${{ matrix.pipeline }}-
+      - name: Install Poetry
+        run: |
+          pip install poetry
+      - name: Install Dependencies
+        working-directory: ./pipelines/${{ matrix.pipeline }}
+        run: |
+          poetry install --with test
+      - name: Run Integration Tests
+        working-directory: ./pipelines/${{ matrix.pipeline }}
+        run: |
+          poetry run pytest tests/integration/ -v
+        env:
+          PYTHONPATH: ./src
+
+  build-and-deploy-dev:
+    runs-on: ubuntu-latest
+    needs: [test-unit, test-integration]
+    strategy:
+      matrix:
+        pipeline: ["geospatial-pipeline"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build and Push Pipeline Image (Dev)
+        working-directory: ./pipelines/${{ matrix.pipeline }}
+        run: |
+          docker build -t my-dagster-${{ matrix.pipeline }} .
+          docker tag my-dagster-${{ matrix.pipeline }} ${{ secrets.ECR_URL }}/my-dagster-${{ matrix.pipeline }}:dev-${{ github.sha }}
+          echo ${{ secrets.AWS_SECRET_ACCESS_KEY }} | docker login --username AWS --password-stdin ${{ secrets.ECR_URL }}
+          docker push ${{ secrets.ECR_URL }}/my-dagster-${{ matrix.pipeline }}:dev-${{ github.sha }}
+      - name: Configure AWS Credentials
+        uses: actions/cache@v3
+        with:
+          path: ~/.aws
+          key: ${{ runner.os }}-aws-credentials-${{ github.sha }}
+      - name: Update EKS Deployment (Dev)
+        run: |
+          aws eks update-kubeconfig --name my-eks-cluster-dev --region us-west-2
+          kubectl set image deployment/dagster-user-code-${{ matrix.pipeline }} user-code=${{ secrets.ECR_URL }}/my-dagster-${{ matrix.pipeline }}:dev-${{ github.sha }} -n dagster
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy-dev
+    environment: production
+    strategy:
+      matrix:
+        pipeline: ["geospatial-pipeline"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Tag and Push Pipeline Image (Prod)
+        working-directory: ./pipelines/${{ matrix.pipeline }}
+        run: |
+          docker build -t my-dagster-${{ matrix.pipeline }} .
+          docker tag my-dagster-${{ matrix.pipeline }} ${{ secrets.ECR_URL }}/my-dagster-${{ matrix.pipeline }}:prod-${{ github.sha }}
+          echo ${{ secrets.AWS_SECRET_ACCESS_KEY }} | docker login --username AWS --password-stdin ${{ secrets.ECR_URL }}
+          docker push ${{ secrets.ECR_URL }}/my-dagster-${{ matrix.pipeline }}:prod-${{ github.sha }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Update EKS Deployment (Prod)
+        run: |
+          aws eks update-kubeconfig --name my-eks-cluster-prod --region us-west-2
+          kubectl set image deployment/dagster-user-code-${{ matrix.pipeline }} user-code=${{ secrets.ECR_URL }}/my-dagster-${{ matrix.pipeline }}:prod-${{ github.sha }} -n dagster
