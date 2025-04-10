@@ -26,11 +26,4 @@ data "aws_eks_cluster_auth" "cluster" {
 
 data "aws_caller_identity" "current" {}
 
-terraform {
-  backend "s3" {
-    bucket         = "hydrosat-central-central-terraform-state" # keeping hardcoded if central or can override during init
-    key            = "dagster-eks/${terraform.workspace}/terraform.tfstate"
-    region         = "eu-west-1"
-    dynamodb_table = "terraform-locks"
-  }
-}
+
